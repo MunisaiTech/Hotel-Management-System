@@ -5,7 +5,6 @@ import jakarta.persistence.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 
-import java.awt.print.Book;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -15,113 +14,133 @@ public class Main{
 
 
     public static void addRoom(Room room){
-        Session session=Utility.getSessionFactory().openSession();
-        Transaction transaction=session.beginTransaction();
-        session.persist(room);
-        transaction.commit();
+        Transaction transaction;
+        try (Session session = Utility.getSessionFactory().openSession()) {
+            transaction = session.beginTransaction();
+            session.persist(room);
+            transaction.commit();
+        }
     }
 
     public static void addCustomer(Customer customer){
-        Session session=Utility.getSessionFactory().openSession();
-        Transaction transaction=session.beginTransaction();
-        session.persist(customer);
-        transaction.commit();
+        Transaction transaction;
+        try (Session session = Utility.getSessionFactory().openSession()) {
+            transaction = session.beginTransaction();
+            session.persist(customer);
+            transaction.commit();
+        }
+
     }
 
-    public  static void allRooms(){
-        Session session=Utility.getSessionFactory().openSession();
-        Transaction ts=session.beginTransaction();
-        String hql="from Room";
-        Query qry=session.createQuery(hql,Room.class);
-        List<Room> rooms=qry.getResultList();
-        if(rooms.isEmpty()){
-            System.out.println("No rooms added at...");
-        }
-        else {
-            System.out.println("---Rooms Data---");
-            for(Room room:rooms){
-                System.out.println(room);
+    public static void allRooms() {
+        try (Session session = Utility.getSessionFactory().openSession()) {
+            String hql = "from Room";
+            Query qry = session.createQuery(hql, Room.class);
+            List<Room> rooms = qry.getResultList();
+
+            if (rooms.isEmpty()) {
+                System.out.println("No rooms added at...");
+            } else {
+                System.out.println("---Rooms Data---");
+                for (Room room : rooms) {
+                    System.out.println(room);
+                }
             }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-
     }
 
-    public static void bookRoom(Scanner sc){
-        Session session=Utility.getSessionFactory().openSession();
-        Transaction ts=session.beginTransaction();
-        String hql="from Room where available=true";
-        Query qry=session.createQuery(hql,Room.class);
-        List<Room> availRooms=qry.getResultList();
-        if(availRooms.isEmpty()){
-            System.out.println("No rooms available today...");
-        }
-        else {
+    public static void bookRoom(Scanner sc) {
+        try (Session session = Utility.getSessionFactory().openSession()) {
+            Transaction ts = session.beginTransaction();
+            String hql = "from Room where available = true";
+            Query qry = session.createQuery(hql, Room.class);
+            List<Room> availRooms = qry.getResultList();
+
+            if (availRooms.isEmpty()) {
+                System.out.println("No rooms available today...");
+                ts.commit(); // still commit even if no action, to close transaction cleanly
+                return;
+            }
+
             System.out.println("Available Rooms");
-            for(Room room:availRooms){
+            for (Room room : availRooms) {
                 System.out.println(room);
             }
+
             System.out.print("Enter customer id: ");
-            int cid=sc.nextInt();
+            int cid = sc.nextInt();
             sc.nextLine();
-            Customer customer=session.find(Customer.class,cid);
-            if(customer==null){
+
+            Customer customer = session.find(Customer.class, cid);
+            if (customer == null) {
                 System.out.println("Invalid customer id");
                 ts.rollback();
                 return;
             }
+
             System.out.print("Enter room id to book: ");
-            int rid=sc.nextInt();
+            int rid = sc.nextInt();
             sc.nextLine();
-            Room room=session.find(Room.class,rid);
-            if(room==null){
-                System.out.println("Invalid room id");
+
+            Room room = session.find(Room.class, rid);
+            if (room == null || !room.isAvailable()) {
+                System.out.println("Invalid or already booked room id");
                 ts.rollback();
                 return;
             }
 
             System.out.print("Enter check-in-date like(YYYY-MM-DD): ");
-            String checkInput=sc.nextLine();
-            LocalDate checkIn=LocalDate.parse(checkInput);
-            System.out.print("Enter check-out-date like(YYYY-MM-DD): ");
-            String checkOutInput=sc.nextLine();
-            LocalDate checkOut=LocalDate.parse(checkOutInput);
+            String checkInput = sc.nextLine();
+            LocalDate checkIn = LocalDate.parse(checkInput);
 
-            Booking booking=new Booking();
-            long noOfDays= ChronoUnit.DAYS.between(checkIn,checkOut);
-            long totalPrice=noOfDays*room.getPrice_per_night();
+            System.out.print("Enter check-out-date like(YYYY-MM-DD): ");
+            String checkOutInput = sc.nextLine();
+            LocalDate checkOut = LocalDate.parse(checkOutInput);
+
+            long noOfDays = ChronoUnit.DAYS.between(checkIn, checkOut);
+            long totalPrice = noOfDays * room.getPrice_per_night();
+
+            Booking booking = new Booking();
             booking.setRoom(room);
             booking.setCustomer(customer);
             booking.setCheckIn(checkIn);
             booking.setCheckOut(checkOut);
             booking.setTotalPrice(totalPrice);
+
             room.setAvailable(false);
             session.persist(booking);
             ts.commit();
-            System.out.println("Customer "+customer.getName()+" booked room-"+rid+" successfully");
 
+            System.out.println("Customer " + customer.getName() + " booked room-" + rid + " successfully");
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-
     }
 
-    public static void viewAllBookings(){
-        Session session=Utility.getSessionFactory().openSession();
-        Transaction ts=session.beginTransaction();
-        String hql="from Booking";
-        Query qry=session.createQuery(hql,Booking.class);
-        List<Booking> bookings=qry.getResultList();
-        ts.commit();
-        if(bookings.isEmpty()){
-            System.out.println("No bookings found till now");
-        }
-        else{
-            System.out.println("---Bookings Data---");
-            for(Booking booking:bookings){
-               System.out.println(booking);
+
+    public static void viewAllBookings() {
+        try (Session session = Utility.getSessionFactory().openSession()) {
+            Transaction ts = session.beginTransaction();
+            String hql = "from Booking";
+            Query qry = session.createQuery(hql, Booking.class);
+            List<Booking> bookings = qry.getResultList();
+            ts.commit();
+
+            if (bookings.isEmpty()) {
+                System.out.println("No bookings found till now");
+            } else {
+                System.out.println("---Bookings Data---");
+                for (Booking booking : bookings) {
+                    System.out.println(booking);
+                }
             }
-
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-
     }
+
 
 
 
