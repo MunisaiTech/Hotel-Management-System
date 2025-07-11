@@ -20,6 +20,9 @@ public class Main{
             session.persist(room);
             transaction.commit();
         }
+        catch (Exception e){
+            e.printStackTrace();
+        }
     }
 
     public static void addCustomer(Customer customer){
